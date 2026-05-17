@@ -85,3 +85,5 @@ CREATE POLICY owners_can_view_pet_scans ON scans FOR SELECT USING (
             AND pets.owner_id = auth.uid()
     )
 );
+-- Allow reading pets infos (to show pets name while scanning)
+CREATE POLICY anyone_can_view_pets ON pets FOR SELECT USING (true);
