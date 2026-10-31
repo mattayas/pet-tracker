@@ -7,9 +7,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Valeurs injectées au build : flutter run --dart-define-from-file=.env.json (modèle : env.example.json)
   await Supabase.initialize(
-    url: 'https://fsaoggrkrdqdrwjjizwu.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzYW9nZ3JrcmRxZHJ3amppend1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwMDMyODAsImV4cCI6MjA5MzU3OTI4MH0.ZYC6R0SC_q-c2qw0ar_We5CYRhCPJ1wTIlfWQNDY-CE',
+    url: const String.fromEnvironment('SUPABASE_URL'),
+    anonKey: const String.fromEnvironment('SUPABASE_ANON_KEY'),
   );
 
   runApp(const PetTrackerApp());
