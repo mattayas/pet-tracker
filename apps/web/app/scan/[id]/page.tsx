@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "../../../utils/supabase";
 
 // 1. Simple dictionary for translations
@@ -12,7 +12,7 @@ const translations = {
     unknownPet: "this pet",
     btnIdle: "📍 Send my location to the owner",
     loading: "Getting location and sending...",
-    success: "✅ Location sent successfully! The owner has been notified. Thank you!",
+    success: "✅ Location saved. Thank you!",
     errorLoc: "Geolocation is not supported or access was denied.",
     errorSend: "❌ An error occurred.",
     retry: "Try again",
@@ -25,7 +25,7 @@ const translations = {
     unknownPet: "ce compagnon",
     btnIdle: "📍 Envoyer ma position au propriétaire",
     loading: "Localisation et envoi en cours...",
-    success: "✅ Position envoyée avec succès ! Le propriétaire a été alerté. Merci !",
+    success: "✅ Position enregistrée. Merci !",
     errorLoc: "La géolocalisation n'est pas supportée ou l'accès a été refusé.",
     errorSend: "❌ Une erreur est survenue.",
     retry: "Réessayer",
@@ -35,6 +35,14 @@ const translations = {
 
 type LangKey = keyof typeof translations;
 
+// Detect browser language (e.g., 'fr-FR' -> 'fr'), English on the server
+const getBrowserLang = (): LangKey => {
+  const browserLang = navigator.language.split('-')[0];
+  return browserLang in translations ? (browserLang as LangKey) : "en";
+};
+const getServerLang = (): LangKey => "en";
+const subscribeToLang = () => () => {};
+
 export default function ScanPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
@@ -42,22 +50,14 @@ export default function ScanPage({ params }: { params: Promise<{ id: string }> }
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [petName, setPetName] = useState<string | null>(null);
   const [isValidPet, setIsValidPet] = useState<boolean | null>(null); // null = loading, true = exists, false = 404
-  const [lang, setLang] = useState<LangKey>("en"); // Default to English
+  const lang = useSyncExternalStore(subscribeToLang, getBrowserLang, getServerLang);
 
-  // Fetch pet data and detect browser language on mount
+  // Fetch pet data on mount
   useEffect(() => {
-    // Detect browser language (e.g., 'fr-FR' -> 'fr')
-    const browserLang = navigator.language.split('-')[0] as LangKey;
-    if (translations[browserLang]) {
-      setLang(browserLang);
-    }
-
     const fetchPetName = async () => {
       const { data, error } = await supabase
-        .from("pets")
-        .select("name")
-        .eq("id", id)
-        .single();
+        .rpc("get_pet_public", { p_pet_id: id })
+        .maybeSingle<{ name: string; is_lost: boolean }>();
 
       if (error || !data) {
         setIsValidPet(false); // Pet not found in database
@@ -88,13 +88,11 @@ export default function ScanPage({ params }: { params: Promise<{ id: string }> }
         const { latitude, longitude } = position.coords;
 
         // Insert scan record into Supabase
-        const { error } = await supabase
-          .from("scans")
-          .insert({
-            pet_id: id,
-            latitude: latitude,
-            longitude: longitude,
-          });
+        const { error } = await supabase.rpc("record_scan", {
+          p_pet_id: id,
+          p_latitude: latitude,
+          p_longitude: longitude,
+        });
 
         if (error) {
           console.error("Insert error:", error.message);
